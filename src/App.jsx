@@ -1,4 +1,5 @@
 import { useState, useRef } from 'react'
+import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, Legend } from 'recharts'
 
 const fmt = (n) =>
   new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(n)
@@ -16,7 +17,29 @@ const initialBills = [
 
 const CATEGORIES = ['Housing', 'Utilities', 'Subscriptions', 'Health', 'Insurance', 'Food', 'Transport', 'Other']
 
+const CATEGORY_COLORS = {
+  Housing:       '#6366f1',
+  Utilities:     '#3b82f6',
+  Subscriptions: '#8b5cf6',
+  Health:        '#10b981',
+  Insurance:     '#f59e0b',
+  Food:          '#ef4444',
+  Transport:     '#14b8a6',
+  Other:         '#94a3b8',
+}
+
 const emptyForm = { name: '', amount: '', category: 'Utilities', dueDay: '', status: 'Unpaid' }
+
+const CustomTooltip = ({ active, payload }) => {
+  if (!active || !payload?.length) return null
+  const { name, value } = payload[0]
+  return (
+    <div className="bg-white border border-gray-200 rounded-lg px-3 py-2 shadow-sm text-sm">
+      <p className="font-medium text-gray-900">{name}</p>
+      <p className="text-gray-600">{fmt(value)}</p>
+    </div>
+  )
+}
 
 export default function App() {
   const [bills, setBills] = useState(initialBills)
@@ -24,7 +47,6 @@ export default function App() {
   const nextId = useRef(9)
   const today = new Date().getDate()
 
-  // days until due: positive = future, negative = past, within current month
   const daysUntilDue = (dueDay) => dueDay - today
 
   const totalSpend   = bills.reduce((s, b) => s + b.amount, 0)
@@ -53,13 +75,20 @@ export default function App() {
 
   const sortedBills = [...bills].sort((a, b) => a.dueDay - b.dueDay)
 
-  // Category breakdown
+  // Category data for charts
   const categoryMap = {}
   for (const b of bills) {
     categoryMap[b.category] = (categoryMap[b.category] || 0) + b.amount
   }
-  const categoryEntries = Object.entries(categoryMap).sort((a, b) => b[1] - a[1])
-  const maxCatAmount = categoryEntries[0]?.[1] || 1
+  const categoryData = Object.entries(categoryMap)
+    .sort((a, b) => b[1] - a[1])
+    .map(([name, value]) => ({ name, value }))
+
+  // Paid vs outstanding donut data
+  const paymentData = [
+    { name: 'Paid', value: paidTotal },
+    { name: 'Outstanding', value: outstanding },
+  ]
 
   const rowClass = (bill) => {
     if (bill.status === 'Paid') return 'bg-white'
@@ -68,6 +97,8 @@ export default function App() {
     if (d <= 7) return 'bg-amber-50'
     return 'bg-white'
   }
+
+  const paidPct = totalSpend > 0 ? Math.round((paidTotal / totalSpend) * 100) : 0
 
   return (
     <div className="min-h-screen bg-gray-50 font-sans">
@@ -83,6 +114,81 @@ export default function App() {
           <StatCard label="Outstanding" value={fmt(outstanding)} color="text-red-600" />
           <StatCard label="Due Soon" value={dueSoonCount} suffix="bills" color="text-amber-600" />
         </div>
+
+        {/* Charts Row */}
+        {bills.length > 0 && (
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-8">
+
+            {/* Category donut */}
+            <section className="bg-white rounded-xl border border-gray-200 p-5">
+              <h2 className="text-base font-semibold text-gray-800 mb-1">Spend by Category</h2>
+              <p className="text-xs text-gray-400 mb-3">Hover a slice for details</p>
+              <ResponsiveContainer width="100%" height={220}>
+                <PieChart>
+                  <Pie
+                    data={categoryData}
+                    cx="50%"
+                    cy="50%"
+                    innerRadius={55}
+                    outerRadius={85}
+                    paddingAngle={2}
+                    dataKey="value"
+                  >
+                    {categoryData.map((entry) => (
+                      <Cell
+                        key={entry.name}
+                        fill={CATEGORY_COLORS[entry.name] || '#94a3b8'}
+                      />
+                    ))}
+                  </Pie>
+                  <Tooltip content={<CustomTooltip />} />
+                  <Legend
+                    iconType="circle"
+                    iconSize={8}
+                    formatter={(value) => (
+                      <span className="text-xs text-gray-600">{value}</span>
+                    )}
+                  />
+                </PieChart>
+              </ResponsiveContainer>
+            </section>
+
+            {/* Paid vs Outstanding donut */}
+            <section className="bg-white rounded-xl border border-gray-200 p-5">
+              <h2 className="text-base font-semibold text-gray-800 mb-1">Payment Progress</h2>
+              <p className="text-xs text-gray-400 mb-3">{paidPct}% of monthly spend paid</p>
+              <ResponsiveContainer width="100%" height={220}>
+                <PieChart>
+                  <Pie
+                    data={paymentData}
+                    cx="50%"
+                    cy="50%"
+                    innerRadius={55}
+                    outerRadius={85}
+                    paddingAngle={2}
+                    dataKey="value"
+                    startAngle={90}
+                    endAngle={-270}
+                  >
+                    <Cell fill="#10b981" />
+                    <Cell fill="#f3f4f6" />
+                  </Pie>
+                  <Tooltip content={<CustomTooltip />} />
+                  <Legend
+                    iconType="circle"
+                    iconSize={8}
+                    formatter={(value, entry) => (
+                      <span className="text-xs text-gray-600">
+                        {value} — {fmt(entry.payload.value)}
+                      </span>
+                    )}
+                  />
+                </PieChart>
+              </ResponsiveContainer>
+            </section>
+
+          </div>
+        )}
 
         {/* Add Bill Form */}
         <section className="bg-white rounded-xl border border-gray-200 p-5 mb-8">
@@ -162,7 +268,10 @@ export default function App() {
                       const d = daysUntilDue(bill.dueDay)
                       return (
                         <tr key={bill.id} className={`${rowClass(bill)} border-b border-gray-50 last:border-0`}>
-                          <td className="px-5 py-3 font-medium text-gray-900">{bill.name}</td>
+                          <td className="px-5 py-3 font-medium text-gray-900">
+                            <span className="inline-block w-2 h-2 rounded-full mr-2" style={{ backgroundColor: CATEGORY_COLORS[bill.category] || '#94a3b8' }} />
+                            {bill.name}
+                          </td>
                           <td className="px-3 py-3 text-gray-600">{bill.category}</td>
                           <td className="px-3 py-3 font-medium text-gray-900">{fmt(bill.amount)}</td>
                           <td className="px-3 py-3 text-gray-600">
@@ -208,13 +317,15 @@ export default function App() {
               <div className="sm:hidden divide-y divide-gray-100">
                 {sortedBills.map(bill => {
                   const d = daysUntilDue(bill.dueDay)
-                  const bg = rowClass(bill)
                   return (
-                    <div key={bill.id} className={`${bg} px-4 py-4`}>
+                    <div key={bill.id} className={`${rowClass(bill)} px-4 py-4`}>
                       <div className="flex items-start justify-between mb-2">
                         <div>
-                          <p className="font-medium text-gray-900 text-sm">{bill.name}</p>
-                          <p className="text-xs text-gray-500">{bill.category} · Due day {bill.dueDay}
+                          <p className="font-medium text-gray-900 text-sm flex items-center gap-1.5">
+                            <span className="inline-block w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: CATEGORY_COLORS[bill.category] || '#94a3b8' }} />
+                            {bill.name}
+                          </p>
+                          <p className="text-xs text-gray-500 mt-0.5">{bill.category} · Due day {bill.dueDay}
                             {bill.status === 'Unpaid' && d < 0 && (
                               <span className="ml-1 text-red-500 font-medium">overdue</span>
                             )}
@@ -251,29 +362,6 @@ export default function App() {
             </>
           )}
         </section>
-
-        {/* Category Breakdown */}
-        {categoryEntries.length > 0 && (
-          <section className="bg-white rounded-xl border border-gray-200 p-5">
-            <h2 className="text-base font-semibold text-gray-800 mb-4">Spend by Category</h2>
-            <div className="space-y-3">
-              {categoryEntries.map(([cat, total]) => (
-                <div key={cat}>
-                  <div className="flex justify-between text-sm mb-1">
-                    <span className="text-gray-700 font-medium">{cat}</span>
-                    <span className="text-gray-900 font-semibold">{fmt(total)}</span>
-                  </div>
-                  <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
-                    <div
-                      className="h-full bg-blue-500 rounded-full transition-all duration-300"
-                      style={{ width: `${(total / maxCatAmount) * 100}%` }}
-                    />
-                  </div>
-                </div>
-              ))}
-            </div>
-          </section>
-        )}
 
       </div>
     </div>
