@@ -1,1 +1,204 @@
 @import "tailwindcss";
+
+/* ── Duolingo design tokens ── */
+:root {
+  --green:        #58CC02;
+  --green-shadow: #58A700;
+  --green-wash:   #E5FCC8;
+  --blue:         #1CB0F6;
+  --blue-shadow:  #1899D6;
+  --red:          #FF4B4B;
+  --red-shadow:   #EA2B2B;
+  --red-wash:     #FFEAEA;
+  --gold:         #FFC800;
+  --gold-shadow:  #E6A100;
+  --orange:       #FF9600;
+  --purple:       #CE82FF;
+  --eel:          #4B4B4B;
+  --wolf:         #777777;
+  --hare:         #AFAFAF;
+  --swan:         #E5E5E5;
+  --swan-shadow:  #CFCFCF;
+  --polar:        #F7F7F7;
+  --font: 'Nunito', system-ui, sans-serif;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html { height: 100%; }
+
+body {
+  font-family: var(--font);
+  background: var(--polar);
+  color: var(--eel);
+  -webkit-font-smoothing: antialiased;
+  height: 100%;
+}
+
+#root {
+  height: 100%;
+}
+
+/* ── Duolingo 3D button ── */
+.duo-btn {
+  display: block;
+  width: 100%;
+  font-family: var(--font);
+  font-weight: 800;
+  font-size: 15px;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  border: none;
+  border-radius: 14px;
+  padding: 15px 20px;
+  cursor: pointer;
+  transition: transform .06s ease, box-shadow .06s ease;
+  -webkit-tap-highlight-color: transparent;
+}
+.duo-btn:active {
+  transform: translateY(4px);
+  box-shadow: 0 0 0 !important;
+}
+.duo-btn.green  { background: var(--green);  box-shadow: 0 5px 0 var(--green-shadow); color: #fff; }
+.duo-btn.blue   { background: var(--blue);   box-shadow: 0 5px 0 var(--blue-shadow);  color: #fff; }
+.duo-btn.red    { background: var(--red);    box-shadow: 0 5px 0 var(--red-shadow);   color: #fff; }
+.duo-btn.ghost  { background: #fff; box-shadow: 0 5px 0 var(--swan); color: var(--blue); border: 2px solid var(--swan); }
+.duo-btn.idle   { background: var(--swan); box-shadow: 0 5px 0 var(--swan-shadow); color: var(--hare); cursor: not-allowed; }
+
+/* ── small action button ── */
+.duo-btn-sm {
+  font-family: var(--font);
+  font-weight: 800;
+  font-size: 13px;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  border: none;
+  border-radius: 10px;
+  padding: 9px 14px;
+  cursor: pointer;
+  transition: transform .06s ease, box-shadow .06s ease;
+  -webkit-tap-highlight-color: transparent;
+}
+.duo-btn-sm:active { transform: translateY(3px); box-shadow: 0 0 0 !important; }
+.duo-btn-sm.ghost  { background: #fff; box-shadow: 0 4px 0 var(--swan); color: var(--blue); border: 2px solid var(--swan); }
+.duo-btn-sm.red    { background: var(--red-wash); box-shadow: 0 4px 0 #FFCFCF; color: var(--red); border: 2px solid #FFCFCF; }
+
+/* ── card ── */
+.duo-card {
+  background: #fff;
+  border: 2px solid var(--swan);
+  border-radius: 18px;
+  box-shadow: 0 4px 0 var(--swan);
+}
+
+/* ── stat pill ── */
+.stat-pill {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-weight: 900;
+  font-size: 15px;
+  padding: 7px 14px;
+  border-radius: 999px;
+  background: var(--polar);
+  border: 2px solid var(--swan);
+}
+
+/* ── bottom nav ── */
+.bottom-nav {
+  position: fixed;
+  bottom: 0; left: 0; right: 0;
+  background: #fff;
+  border-top: 2px solid var(--swan);
+  display: flex;
+  align-items: center;
+  justify-content: space-around;
+  padding: 8px 0 max(12px, env(safe-area-inset-bottom));
+  z-index: 50;
+}
+.nav-tab {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 4px 0;
+  -webkit-tap-highlight-color: transparent;
+}
+.nav-tab .nav-label {
+  font-family: var(--font);
+  font-weight: 800;
+  font-size: 11px;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  color: var(--hare);
+}
+.nav-tab.active .nav-label { color: var(--green); }
+.nav-tab svg { color: var(--hare); }
+.nav-tab.active svg { color: var(--green); }
+.nav-fab {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: var(--green);
+  box-shadow: 0 5px 0 var(--green-shadow);
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: -22px;
+  transition: transform .06s, box-shadow .06s;
+  -webkit-tap-highlight-color: transparent;
+}
+.nav-fab:active { transform: translateY(5px); box-shadow: 0 0 0 var(--green-shadow); }
+
+/* ── feedback banner ── */
+.banner {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  border-radius: 14px;
+  padding: 14px 16px;
+  font-weight: 900;
+  font-size: 16px;
+}
+.banner.good { background: var(--green-wash); color: #3a7700; }
+.banner.bad  { background: var(--red-wash);  color: var(--red-shadow); }
+
+/* ── token chips (word bank) ── */
+.token {
+  font-family: var(--font);
+  font-weight: 700;
+  font-size: 14px;
+  padding: 8px 14px;
+  border: 2px solid var(--swan);
+  border-bottom-width: 4px;
+  border-radius: 10px;
+  background: #fff;
+  color: var(--eel);
+  display: inline-block;
+}
+
+/* ── progress bar ── */
+.duo-progress {
+  height: 16px;
+  background: var(--swan);
+  border-radius: 999px;
+  overflow: hidden;
+}
+.duo-progress > span {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: var(--green);
+  box-shadow: inset 0 5px 0 rgba(255,255,255,.3);
+  transition: width .4s ease;
+}
+
+/* scrollable content clears bottom nav */
+.page-content {
+  padding-bottom: calc(80px + max(12px, env(safe-area-inset-bottom)));
+}

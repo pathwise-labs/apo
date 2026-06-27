@@ -1,8 +1,9 @@
 import { useState, useRef } from 'react'
-import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, Legend } from 'recharts'
+import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts'
 
+/* ── helpers ── */
 const fmt = (n) =>
-  new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(n)
+  new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(n)
 
 const initialBills = [
   { id: 1, name: 'Rent',        amount: 2200, category: 'Housing',       dueDay: 1,  status: 'Paid' },
@@ -17,341 +18,220 @@ const initialBills = [
 
 const CATEGORIES = ['Housing', 'Utilities', 'Subscriptions', 'Health', 'Insurance', 'Food', 'Transport', 'Other']
 
-const CATEGORY_COLORS = {
-  Housing:       '#6366f1',
-  Utilities:     '#3b82f6',
-  Subscriptions: '#8b5cf6',
-  Health:        '#10b981',
-  Insurance:     '#f59e0b',
-  Food:          '#ef4444',
-  Transport:     '#14b8a6',
-  Other:         '#94a3b8',
+const CAT_COLOR = {
+  Housing: '#6366f1', Utilities: '#1CB0F6', Subscriptions: '#CE82FF',
+  Health: '#58CC02', Insurance: '#FFC800', Food: '#FF4B4B',
+  Transport: '#14b8a6', Other: '#AFAFAF',
 }
 
 const emptyForm = { name: '', amount: '', category: 'Utilities', dueDay: '', status: 'Unpaid' }
 
-const CustomTooltip = ({ active, payload }) => {
+/* ── icons ── */
+const IconHome = () => (
+  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M3 9.5L12 3l9 6.5V20a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9.5z"/>
+    <path d="M9 21V12h6v9"/>
+  </svg>
+)
+const IconList = () => (
+  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+    <line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/>
+    <circle cx="3" cy="6" r="1.2" fill="currentColor" stroke="none"/>
+    <circle cx="3" cy="12" r="1.2" fill="currentColor" stroke="none"/>
+    <circle cx="3" cy="18" r="1.2" fill="currentColor" stroke="none"/>
+  </svg>
+)
+const IconChart = () => (
+  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M21 21H3"/><path d="M21 3v18"/><rect x="6" y="10" width="4" height="11" rx="1"/>
+    <rect x="13" y="6" width="4" height="15" rx="1"/>
+  </svg>
+)
+const IconPlus = () => (
+  <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3" strokeLinecap="round">
+    <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+  </svg>
+)
+
+/* ── custom tooltip for chart ── */
+const ChartTip = ({ active, payload }) => {
   if (!active || !payload?.length) return null
-  const { name, value } = payload[0]
   return (
-    <div className="bg-white border border-gray-200 rounded-lg px-3 py-2 shadow-sm text-sm">
-      <p className="font-medium text-gray-900">{name}</p>
-      <p className="text-gray-600">{fmt(value)}</p>
+    <div style={{ background: '#fff', border: '2px solid #E5E5E5', borderRadius: 12, padding: '8px 14px', fontFamily: 'Nunito, sans-serif', fontWeight: 800 }}>
+      <p style={{ color: '#4B4B4B', fontSize: 13 }}>{payload[0].name}</p>
+      <p style={{ color: '#58CC02', fontSize: 15 }}>{fmt(payload[0].value)}</p>
     </div>
   )
 }
 
+/* ════════════════════════════════════════ */
 export default function App() {
   const [bills, setBills] = useState(initialBills)
   const [form, setForm] = useState(emptyForm)
+  const [tab, setTab] = useState('home')
   const nextId = useRef(9)
   const today = new Date().getDate()
 
-  const daysUntilDue = (dueDay) => dueDay - today
+  const daysUntil = (d) => d - today
 
-  const totalSpend   = bills.reduce((s, b) => s + b.amount, 0)
-  const paidTotal    = bills.filter(b => b.status === 'Paid').reduce((s, b) => s + b.amount, 0)
-  const outstanding  = totalSpend - paidTotal
-  const dueSoonCount = bills.filter(b =>
-    b.status === 'Unpaid' && daysUntilDue(b.dueDay) >= 0 && daysUntilDue(b.dueDay) <= 7
-  ).length
+  /* derived */
+  const totalSpend  = bills.reduce((s, b) => s + b.amount, 0)
+  const paidTotal   = bills.filter(b => b.status === 'Paid').reduce((s, b) => s + b.amount, 0)
+  const outstanding = totalSpend - paidTotal
+  const dueSoon     = bills.filter(b => b.status === 'Unpaid' && daysUntil(b.dueDay) >= 0 && daysUntil(b.dueDay) <= 7)
+  const overdue     = bills.filter(b => b.status === 'Unpaid' && daysUntil(b.dueDay) < 0)
+  const paidPct     = totalSpend > 0 ? Math.round((paidTotal / totalSpend) * 100) : 0
 
+  /* handlers */
   const addBill = () => {
     if (!form.name.trim() || !form.amount || !form.dueDay) return
-    setBills(prev => [
-      ...prev,
-      { id: nextId.current++, name: form.name.trim(), amount: parseFloat(form.amount),
-        category: form.category, dueDay: parseInt(form.dueDay), status: form.status },
-    ])
+    setBills(p => [...p, {
+      id: nextId.current++,
+      name: form.name.trim(),
+      amount: parseFloat(form.amount),
+      category: form.category,
+      dueDay: parseInt(form.dueDay),
+      status: form.status,
+    }])
     setForm(emptyForm)
+    setTab('bills')
   }
 
   const togglePaid = (id) =>
-    setBills(prev => prev.map(b =>
-      b.id === id ? { ...b, status: b.status === 'Paid' ? 'Unpaid' : 'Paid' } : b
-    ))
+    setBills(p => p.map(b => b.id === id ? { ...b, status: b.status === 'Paid' ? 'Unpaid' : 'Paid' } : b))
 
-  const deleteBill = (id) => setBills(prev => prev.filter(b => b.id !== id))
+  const deleteBill = (id) => setBills(p => p.filter(b => b.id !== id))
 
   const sortedBills = [...bills].sort((a, b) => a.dueDay - b.dueDay)
 
-  // Category data for charts
-  const categoryMap = {}
-  for (const b of bills) {
-    categoryMap[b.category] = (categoryMap[b.category] || 0) + b.amount
-  }
-  const categoryData = Object.entries(categoryMap)
-    .sort((a, b) => b[1] - a[1])
-    .map(([name, value]) => ({ name, value }))
-
-  // Paid vs outstanding donut data
-  const paymentData = [
-    { name: 'Paid', value: paidTotal },
-    { name: 'Outstanding', value: outstanding },
-  ]
-
-  const rowClass = (bill) => {
-    if (bill.status === 'Paid') return 'bg-white'
-    const d = daysUntilDue(bill.dueDay)
-    if (d < 0) return 'bg-red-50'
-    if (d <= 7) return 'bg-amber-50'
-    return 'bg-white'
-  }
-
-  const paidPct = totalSpend > 0 ? Math.round((paidTotal / totalSpend) * 100) : 0
+  /* category chart data */
+  const catMap = {}
+  for (const b of bills) catMap[b.category] = (catMap[b.category] || 0) + b.amount
+  const catData = Object.entries(catMap).sort((a, b) => b[1] - a[1]).map(([name, value]) => ({ name, value }))
+  const payData = [{ name: 'Paid', value: paidTotal }, { name: 'Outstanding', value: outstanding }]
 
   return (
-    <div className="min-h-screen bg-gray-50 font-sans">
-      <div className="max-w-3xl mx-auto px-4 py-8">
+    <div style={{ maxWidth: 430, margin: '0 auto', minHeight: '100dvh', background: '#F7F7F7', position: 'relative', fontFamily: 'Nunito, sans-serif' }}>
 
-        {/* Header */}
-        <h1 className="text-2xl font-bold text-gray-900 mb-6">Bill Tracker</h1>
+      {/* ── content pages ── */}
+      <div className="page-content">
 
-        {/* Summary Cards */}
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 mb-8">
-          <StatCard label="Total Monthly" value={fmt(totalSpend)} color="text-gray-900" />
-          <StatCard label="Paid This Month" value={fmt(paidTotal)} color="text-green-600" />
-          <StatCard label="Outstanding" value={fmt(outstanding)} color="text-red-600" />
-          <StatCard label="Due Soon" value={dueSoonCount} suffix="bills" color="text-amber-600" />
-        </div>
+        {/* ══ HOME ══ */}
+        {tab === 'home' && (
+          <div style={{ padding: '20px 16px 0' }}>
+            <h1 style={{ fontWeight: 900, fontSize: 26, color: '#4B4B4B', marginBottom: 4 }}>Billy</h1>
+            <p style={{ fontWeight: 700, fontSize: 14, color: '#AFAFAF', marginBottom: 20 }}>
+              {new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
+            </p>
 
-        {/* Charts Row */}
-        {bills.length > 0 && (
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-8">
+            {/* Progress bar */}
+            <div className="duo-card" style={{ padding: '18px 18px 16px', marginBottom: 16 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+                <span style={{ fontWeight: 900, fontSize: 14, color: '#AFAFAF', textTransform: 'uppercase', letterSpacing: '.06em' }}>Monthly progress</span>
+                <span style={{ fontWeight: 900, fontSize: 16, color: '#58CC02' }}>{paidPct}%</span>
+              </div>
+              <div className="duo-progress">
+                <span style={{ width: `${paidPct}%` }} />
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 10 }}>
+                <span style={{ fontWeight: 800, fontSize: 13, color: '#58CC02' }}>{fmt(paidTotal)} paid</span>
+                <span style={{ fontWeight: 800, fontSize: 13, color: '#FF4B4B' }}>{fmt(outstanding)} left</span>
+              </div>
+            </div>
 
-            {/* Category donut */}
-            <section className="bg-white rounded-xl border border-gray-200 p-5">
-              <h2 className="text-base font-semibold text-gray-800 mb-1">Spend by Category</h2>
-              <p className="text-xs text-gray-400 mb-3">Hover a slice for details</p>
-              <ResponsiveContainer width="100%" height={220}>
-                <PieChart>
-                  <Pie
-                    data={categoryData}
-                    cx="50%"
-                    cy="50%"
-                    innerRadius={55}
-                    outerRadius={85}
-                    paddingAngle={2}
-                    dataKey="value"
-                  >
-                    {categoryData.map((entry) => (
-                      <Cell
-                        key={entry.name}
-                        fill={CATEGORY_COLORS[entry.name] || '#94a3b8'}
-                      />
-                    ))}
-                  </Pie>
-                  <Tooltip content={<CustomTooltip />} />
-                  <Legend
-                    iconType="circle"
-                    iconSize={8}
-                    formatter={(value) => (
-                      <span className="text-xs text-gray-600">{value}</span>
-                    )}
-                  />
-                </PieChart>
-              </ResponsiveContainer>
-            </section>
+            {/* Stat pills row */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 16 }}>
+              <StatCard label="Total" value={fmt(totalSpend)} dot="#4B4B4B" />
+              <StatCard label="Paid" value={fmt(paidTotal)} dot="#58CC02" />
+              <StatCard label="Outstanding" value={fmt(outstanding)} dot="#FF4B4B" />
+              <StatCard label="Due soon" value={`${dueSoon.length} bills`} dot="#FFC800" />
+            </div>
 
-            {/* Paid vs Outstanding donut */}
-            <section className="bg-white rounded-xl border border-gray-200 p-5">
-              <h2 className="text-base font-semibold text-gray-800 mb-1">Payment Progress</h2>
-              <p className="text-xs text-gray-400 mb-3">{paidPct}% of monthly spend paid</p>
-              <ResponsiveContainer width="100%" height={220}>
-                <PieChart>
-                  <Pie
-                    data={paymentData}
-                    cx="50%"
-                    cy="50%"
-                    innerRadius={55}
-                    outerRadius={85}
-                    paddingAngle={2}
-                    dataKey="value"
-                    startAngle={90}
-                    endAngle={-270}
-                  >
-                    <Cell fill="#10b981" />
-                    <Cell fill="#f3f4f6" />
-                  </Pie>
-                  <Tooltip content={<CustomTooltip />} />
-                  <Legend
-                    iconType="circle"
-                    iconSize={8}
-                    formatter={(value, entry) => (
-                      <span className="text-xs text-gray-600">
-                        {value} — {fmt(entry.payload.value)}
-                      </span>
-                    )}
-                  />
-                </PieChart>
-              </ResponsiveContainer>
-            </section>
-
+            {/* Alert banners */}
+            {overdue.length > 0 && (
+              <div className="banner bad" style={{ marginBottom: 10 }}>
+                <span style={{ fontSize: 20 }}>⚠️</span>
+                <span>{overdue.length} bill{overdue.length > 1 ? 's' : ''} overdue — {overdue.map(b => b.name).join(', ')}</span>
+              </div>
+            )}
+            {dueSoon.length > 0 && (
+              <div className="banner good" style={{ marginBottom: 10 }}>
+                <span style={{ fontSize: 20 }}>📅</span>
+                <span>{dueSoon.length} bill{dueSoon.length > 1 ? 's' : ''} due soon</span>
+              </div>
+            )}
+            {bills.length === 0 && (
+              <div style={{ textAlign: 'center', padding: '40px 0', color: '#AFAFAF', fontWeight: 800 }}>
+                No bills yet — tap + to add one
+              </div>
+            )}
           </div>
         )}
 
-        {/* Add Bill Form */}
-        <section className="bg-white rounded-xl border border-gray-200 p-5 mb-8">
-          <h2 className="text-base font-semibold text-gray-800 mb-4">Add Bill</h2>
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            <input
-              className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-              placeholder="Bill name"
-              value={form.name}
-              onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
-            />
-            <input
-              type="number"
-              min="0"
-              step="0.01"
-              className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-              placeholder="Amount ($)"
-              value={form.amount}
-              onChange={e => setForm(f => ({ ...f, amount: e.target.value }))}
-            />
-            <select
-              className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-              value={form.category}
-              onChange={e => setForm(f => ({ ...f, category: e.target.value }))}
-            >
-              {CATEGORIES.map(c => <option key={c}>{c}</option>)}
-            </select>
-            <input
-              type="number"
-              min="1"
-              max="31"
-              className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-              placeholder="Due day (1–31)"
-              value={form.dueDay}
-              onChange={e => setForm(f => ({ ...f, dueDay: e.target.value }))}
-            />
-            <select
-              className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-              value={form.status}
-              onChange={e => setForm(f => ({ ...f, status: e.target.value }))}
-            >
-              <option>Unpaid</option>
-              <option>Paid</option>
-            </select>
-            <button
-              onClick={addBill}
-              className="bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg px-4 py-2 text-sm transition-colors"
-            >
-              Add Bill
-            </button>
-          </div>
-        </section>
+        {/* ══ BILLS ══ */}
+        {tab === 'bills' && (
+          <div style={{ padding: '20px 16px 0' }}>
+            <h2 style={{ fontWeight: 900, fontSize: 22, color: '#4B4B4B', marginBottom: 16 }}>Bills</h2>
 
-        {/* Bills List */}
-        <section className="bg-white rounded-xl border border-gray-200 mb-8 overflow-hidden">
-          <h2 className="text-base font-semibold text-gray-800 px-5 py-4 border-b border-gray-100">Bills</h2>
-
-          {bills.length === 0 ? (
-            <p className="text-center text-gray-400 py-16 text-sm">No bills yet — add one above</p>
-          ) : (
-            <>
-              {/* Desktop table */}
-              <div className="hidden sm:block overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="text-left text-xs font-medium text-gray-500 uppercase tracking-wide border-b border-gray-100">
-                      <th className="px-5 py-3">Name</th>
-                      <th className="px-3 py-3">Category</th>
-                      <th className="px-3 py-3">Amount</th>
-                      <th className="px-3 py-3">Due Day</th>
-                      <th className="px-3 py-3">Status</th>
-                      <th className="px-3 py-3">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {sortedBills.map(bill => {
-                      const d = daysUntilDue(bill.dueDay)
-                      return (
-                        <tr key={bill.id} className={`${rowClass(bill)} border-b border-gray-50 last:border-0`}>
-                          <td className="px-5 py-3 font-medium text-gray-900">
-                            <span className="inline-block w-2 h-2 rounded-full mr-2" style={{ backgroundColor: CATEGORY_COLORS[bill.category] || '#94a3b8' }} />
-                            {bill.name}
-                          </td>
-                          <td className="px-3 py-3 text-gray-600">{bill.category}</td>
-                          <td className="px-3 py-3 font-medium text-gray-900">{fmt(bill.amount)}</td>
-                          <td className="px-3 py-3 text-gray-600">
-                            {bill.dueDay}
-                            {bill.status === 'Unpaid' && d < 0 && (
-                              <span className="ml-1 text-xs text-red-500 font-medium">overdue</span>
-                            )}
-                            {bill.status === 'Unpaid' && d >= 0 && d <= 7 && (
-                              <span className="ml-1 text-xs text-amber-600 font-medium">soon</span>
-                            )}
-                          </td>
-                          <td className="px-3 py-3">
-                            {bill.status === 'Paid' ? (
-                              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-700">Paid</span>
-                            ) : (
-                              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-600">Unpaid</span>
-                            )}
-                          </td>
-                          <td className="px-3 py-3">
-                            <div className="flex gap-2">
-                              <button
-                                onClick={() => togglePaid(bill.id)}
-                                className="text-xs px-2.5 py-1 rounded-md border border-gray-200 hover:border-gray-300 text-gray-600 hover:text-gray-900 transition-colors"
-                              >
-                                {bill.status === 'Paid' ? 'Mark Unpaid' : 'Mark Paid'}
-                              </button>
-                              <button
-                                onClick={() => deleteBill(bill.id)}
-                                className="text-xs px-2 py-1 rounded-md text-red-400 hover:text-red-600 hover:bg-red-50 transition-colors"
-                              >
-                                Delete
-                              </button>
-                            </div>
-                          </td>
-                        </tr>
-                      )
-                    })}
-                  </tbody>
-                </table>
+            {bills.length === 0 ? (
+              <div className="duo-card" style={{ padding: 32, textAlign: 'center' }}>
+                <p style={{ fontWeight: 800, color: '#AFAFAF', fontSize: 15 }}>No bills yet — tap + to add one</p>
               </div>
-
-              {/* Mobile cards */}
-              <div className="sm:hidden divide-y divide-gray-100">
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                 {sortedBills.map(bill => {
-                  const d = daysUntilDue(bill.dueDay)
+                  const d = daysUntil(bill.dueDay)
+                  const isPaid = bill.status === 'Paid'
+                  const isOverdue = !isPaid && d < 0
+                  const isSoon = !isPaid && d >= 0 && d <= 7
+
                   return (
-                    <div key={bill.id} className={`${rowClass(bill)} px-4 py-4`}>
-                      <div className="flex items-start justify-between mb-2">
-                        <div>
-                          <p className="font-medium text-gray-900 text-sm flex items-center gap-1.5">
-                            <span className="inline-block w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: CATEGORY_COLORS[bill.category] || '#94a3b8' }} />
-                            {bill.name}
-                          </p>
-                          <p className="text-xs text-gray-500 mt-0.5">{bill.category} · Due day {bill.dueDay}
-                            {bill.status === 'Unpaid' && d < 0 && (
-                              <span className="ml-1 text-red-500 font-medium">overdue</span>
-                            )}
-                            {bill.status === 'Unpaid' && d >= 0 && d <= 7 && (
-                              <span className="ml-1 text-amber-600 font-medium">soon</span>
-                            )}
-                          </p>
+                    <div key={bill.id} className="duo-card" style={{
+                      padding: '14px 16px',
+                      borderColor: isOverdue ? '#FFCFCF' : isSoon ? '#FFE8A3' : '#E5E5E5',
+                      background: isOverdue ? '#FFFAFA' : isSoon ? '#FFFDF0' : '#fff',
+                    }}>
+                      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 10 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                          <span style={{
+                            width: 40, height: 40, borderRadius: 12, flexShrink: 0,
+                            background: CAT_COLOR[bill.category] + '22',
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            fontSize: 18,
+                          }}>
+                            {catEmoji(bill.category)}
+                          </span>
+                          <div>
+                            <p style={{ fontWeight: 900, fontSize: 15, color: '#4B4B4B' }}>{bill.name}</p>
+                            <p style={{ fontWeight: 700, fontSize: 12, color: '#AFAFAF' }}>
+                              {bill.category} · Day {bill.dueDay}
+                              {isOverdue && <span style={{ color: '#FF4B4B', marginLeft: 4 }}>overdue</span>}
+                              {isSoon && <span style={{ color: '#FF9600', marginLeft: 4 }}>due soon</span>}
+                            </p>
+                          </div>
                         </div>
-                        <p className="font-semibold text-gray-900 text-sm">{fmt(bill.amount)}</p>
+                        <div style={{ textAlign: 'right' }}>
+                          <p style={{ fontWeight: 900, fontSize: 17, color: '#4B4B4B' }}>{fmt(bill.amount)}</p>
+                          <span style={{
+                            display: 'inline-block', marginTop: 2,
+                            fontWeight: 800, fontSize: 11, letterSpacing: '.06em', textTransform: 'uppercase',
+                            padding: '3px 9px', borderRadius: 999,
+                            background: isPaid ? '#E5FCC8' : '#F7F7F7',
+                            color: isPaid ? '#3a7700' : '#AFAFAF',
+                          }}>
+                            {isPaid ? '✓ Paid' : 'Unpaid'}
+                          </span>
+                        </div>
                       </div>
-                      <div className="flex items-center gap-2 mt-3">
-                        {bill.status === 'Paid' ? (
-                          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-700">Paid</span>
-                        ) : (
-                          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-600">Unpaid</span>
-                        )}
+                      <div style={{ display: 'flex', gap: 8 }}>
                         <button
+                          className={`duo-btn-sm ${isPaid ? 'ghost' : 'ghost'}`}
+                          style={{ flex: 1, color: isPaid ? '#777' : '#1CB0F6' }}
                           onClick={() => togglePaid(bill.id)}
-                          className="text-xs px-2.5 py-1 rounded-md border border-gray-200 text-gray-600 transition-colors"
                         >
-                          {bill.status === 'Paid' ? 'Mark Unpaid' : 'Mark Paid'}
+                          {isPaid ? 'Mark Unpaid' : 'Mark Paid'}
                         </button>
-                        <button
-                          onClick={() => deleteBill(bill.id)}
-                          className="text-xs px-2 py-1 rounded-md text-red-400 hover:text-red-600 transition-colors"
-                        >
+                        <button className="duo-btn-sm red" onClick={() => deleteBill(bill.id)}>
                           Delete
                         </button>
                       </div>
@@ -359,22 +239,187 @@ export default function App() {
                   )
                 })}
               </div>
-            </>
-          )}
-        </section>
+            )}
+          </div>
+        )}
 
+        {/* ══ ADD ══ */}
+        {tab === 'add' && (
+          <div style={{ padding: '20px 16px 0' }}>
+            <h2 style={{ fontWeight: 900, fontSize: 22, color: '#4B4B4B', marginBottom: 4 }}>Add a Bill</h2>
+            <p style={{ fontWeight: 700, fontSize: 14, color: '#AFAFAF', marginBottom: 20 }}>Fill in the details below</p>
+
+            <div className="duo-card" style={{ padding: 20, display: 'flex', flexDirection: 'column', gap: 14 }}>
+              <Field label="Bill name">
+                <input
+                  style={inputStyle}
+                  placeholder="e.g. Netflix"
+                  value={form.name}
+                  onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
+                />
+              </Field>
+              <Field label="Amount ($)">
+                <input
+                  type="number" min="0" step="0.01"
+                  style={inputStyle}
+                  placeholder="0.00"
+                  value={form.amount}
+                  onChange={e => setForm(f => ({ ...f, amount: e.target.value }))}
+                />
+              </Field>
+              <Field label="Category">
+                <select style={inputStyle} value={form.category} onChange={e => setForm(f => ({ ...f, category: e.target.value }))}>
+                  {CATEGORIES.map(c => <option key={c}>{c}</option>)}
+                </select>
+              </Field>
+              <Field label="Due day of month">
+                <input
+                  type="number" min="1" max="31"
+                  style={inputStyle}
+                  placeholder="1 – 31"
+                  value={form.dueDay}
+                  onChange={e => setForm(f => ({ ...f, dueDay: e.target.value }))}
+                />
+              </Field>
+              <Field label="Status">
+                <select style={inputStyle} value={form.status} onChange={e => setForm(f => ({ ...f, status: e.target.value }))}>
+                  <option>Unpaid</option>
+                  <option>Paid</option>
+                </select>
+              </Field>
+            </div>
+
+            <div style={{ marginTop: 20, display: 'flex', flexDirection: 'column', gap: 10 }}>
+              <button className="duo-btn green" onClick={addBill}>Add Bill</button>
+              <button className="duo-btn ghost" onClick={() => { setForm(emptyForm); setTab('bills') }}>Cancel</button>
+            </div>
+          </div>
+        )}
+
+        {/* ══ CHARTS ══ */}
+        {tab === 'charts' && (
+          <div style={{ padding: '20px 16px 0' }}>
+            <h2 style={{ fontWeight: 900, fontSize: 22, color: '#4B4B4B', marginBottom: 4 }}>Insights</h2>
+            <p style={{ fontWeight: 700, fontSize: 14, color: '#AFAFAF', marginBottom: 16 }}>Where your money goes</p>
+
+            {bills.length === 0 ? (
+              <div className="duo-card" style={{ padding: 32, textAlign: 'center' }}>
+                <p style={{ fontWeight: 800, color: '#AFAFAF' }}>Add bills to see your spending breakdown</p>
+              </div>
+            ) : (
+              <>
+                {/* Category donut */}
+                <div className="duo-card" style={{ padding: '18px 16px 10px', marginBottom: 14 }}>
+                  <p style={{ fontWeight: 900, fontSize: 15, color: '#4B4B4B', marginBottom: 2 }}>Spend by Category</p>
+                  <p style={{ fontWeight: 700, fontSize: 12, color: '#AFAFAF', marginBottom: 6 }}>Tap a slice for the amount</p>
+                  <ResponsiveContainer width="100%" height={210}>
+                    <PieChart>
+                      <Pie data={catData} cx="50%" cy="50%" innerRadius={52} outerRadius={80} paddingAngle={3} dataKey="value">
+                        {catData.map(e => <Cell key={e.name} fill={CAT_COLOR[e.name] || '#AFAFAF'} />)}
+                      </Pie>
+                      <Tooltip content={<ChartTip />} />
+                    </PieChart>
+                  </ResponsiveContainer>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px 14px', marginTop: 4 }}>
+                    {catData.map(e => (
+                      <div key={e.name} style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                        <span style={{ width: 8, height: 8, borderRadius: '50%', background: CAT_COLOR[e.name] || '#AFAFAF', flexShrink: 0 }} />
+                        <span style={{ fontWeight: 800, fontSize: 12, color: '#777' }}>{e.name}</span>
+                        <span style={{ fontWeight: 900, fontSize: 12, color: '#4B4B4B' }}>{fmt(e.value)}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Paid vs outstanding donut */}
+                <div className="duo-card" style={{ padding: '18px 16px 10px', marginBottom: 14 }}>
+                  <p style={{ fontWeight: 900, fontSize: 15, color: '#4B4B4B', marginBottom: 2 }}>Payment Progress</p>
+                  <p style={{ fontWeight: 700, fontSize: 12, color: '#AFAFAF', marginBottom: 6 }}>{paidPct}% of monthly spend cleared</p>
+                  <ResponsiveContainer width="100%" height={180}>
+                    <PieChart>
+                      <Pie data={payData} cx="50%" cy="50%" innerRadius={52} outerRadius={80} paddingAngle={3} dataKey="value" startAngle={90} endAngle={-270}>
+                        <Cell fill="#58CC02" />
+                        <Cell fill="#E5E5E5" />
+                      </Pie>
+                      <Tooltip content={<ChartTip />} />
+                    </PieChart>
+                  </ResponsiveContainer>
+                  <div style={{ display: 'flex', gap: 16, justifyContent: 'center' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                      <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#58CC02' }} />
+                      <span style={{ fontWeight: 900, fontSize: 12, color: '#3a7700' }}>Paid {fmt(paidTotal)}</span>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                      <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#E5E5E5' }} />
+                      <span style={{ fontWeight: 900, fontSize: 12, color: '#777' }}>Left {fmt(outstanding)}</span>
+                    </div>
+                  </div>
+                </div>
+              </>
+            )}
+          </div>
+        )}
       </div>
+
+      {/* ── Bottom Nav ── */}
+      <nav className="bottom-nav">
+        <button className={`nav-tab${tab === 'home' ? ' active' : ''}`} onClick={() => setTab('home')}>
+          <IconHome /><span className="nav-label">Home</span>
+        </button>
+        <button className={`nav-tab${tab === 'bills' ? ' active' : ''}`} onClick={() => setTab('bills')}>
+          <IconList /><span className="nav-label">Bills</span>
+        </button>
+        <button className="nav-fab" onClick={() => setTab('add')} aria-label="Add bill">
+          <IconPlus />
+        </button>
+        <button className={`nav-tab${tab === 'charts' ? ' active' : ''}`} onClick={() => setTab('charts')}>
+          <IconChart /><span className="nav-label">Insights</span>
+        </button>
+        {/* spacer to balance FAB */}
+        <div style={{ flex: 1 }} />
+      </nav>
     </div>
   )
 }
 
-function StatCard({ label, value, color, suffix }) {
+/* ── sub-components ── */
+function StatCard({ label, value, dot }) {
   return (
-    <div className="bg-white rounded-xl border border-gray-200 p-4">
-      <p className="text-xs text-gray-500 font-medium mb-1">{label}</p>
-      <p className={`text-xl font-bold ${color}`}>
-        {value}{suffix && <span className="text-sm font-normal text-gray-500 ml-1">{suffix}</span>}
-      </p>
+    <div className="duo-card" style={{ padding: '14px 16px' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
+        <span style={{ width: 8, height: 8, borderRadius: '50%', background: dot, flexShrink: 0 }} />
+        <span style={{ fontWeight: 800, fontSize: 11, color: '#AFAFAF', textTransform: 'uppercase', letterSpacing: '.06em' }}>{label}</span>
+      </div>
+      <p style={{ fontWeight: 900, fontSize: 18, color: '#4B4B4B' }}>{value}</p>
     </div>
   )
+}
+
+function Field({ label, children }) {
+  return (
+    <div>
+      <label style={{ display: 'block', fontWeight: 800, fontSize: 12, color: '#AFAFAF', textTransform: 'uppercase', letterSpacing: '.08em', marginBottom: 6 }}>
+        {label}
+      </label>
+      {children}
+    </div>
+  )
+}
+
+const inputStyle = {
+  width: '100%',
+  fontFamily: 'Nunito, sans-serif',
+  fontWeight: 700,
+  fontSize: 15,
+  color: '#4B4B4B',
+  background: '#F7F7F7',
+  border: '2px solid #E5E5E5',
+  borderRadius: 12,
+  padding: '12px 14px',
+  outline: 'none',
+}
+
+function catEmoji(cat) {
+  const map = { Housing: '🏠', Utilities: '⚡', Subscriptions: '📺', Health: '💪', Insurance: '🛡️', Food: '🍔', Transport: '🚗', Other: '📦' }
+  return map[cat] || '📦'
 }
