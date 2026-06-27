@@ -1,5 +1,6 @@
 import { useState, useRef } from 'react'
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts'
+import Tesseract from 'tesseract.js'
 
 /* ── helpers ── */
 const fmt = (n) =>
@@ -78,8 +79,32 @@ export default function App() {
   const [bills, setBills] = useState(initialBills)
   const [form, setForm] = useState(emptyForm)
   const [tab, setTab] = useState('home')
+  const [scanState, setScanState] = useState('idle') // 'idle' | 'scanning' | 'done' | 'error'
   const nextId = useRef(9)
+  const scanInputRef = useRef(null)
   const today = new Date().getDate()
+
+  async function handleScanFile(file) {
+    setScanState('scanning')
+    const url = URL.createObjectURL(file)
+    try {
+      const worker = await Tesseract.createWorker('eng')
+      const { data: { text } } = await worker.recognize(url)
+      await worker.terminate()
+      URL.revokeObjectURL(url)
+      const parsed = parseOCRText(text)
+      setForm(f => ({ ...f, ...parsed }))
+      setScanState(parsed.amount || parsed.name ? 'done' : 'error')
+    } catch {
+      URL.revokeObjectURL(url)
+      setScanState('error')
+    }
+  }
+
+  function resetScan() {
+    setScanState('idle')
+    if (scanInputRef.current) scanInputRef.current.value = ''
+  }
 
   const daysUntil = (d) => d - today
 
@@ -103,6 +128,7 @@ export default function App() {
       status: form.status,
     }])
     setForm(emptyForm)
+    setScanState('idle')
     setTab('bills')
   }
 
@@ -281,10 +307,54 @@ export default function App() {
               </div>
             </div>
 
+            {/* ── Scan UI ── */}
+            <input
+              ref={scanInputRef}
+              type="file"
+              accept="image/*"
+              capture="environment"
+              style={{ display: 'none' }}
+              onChange={e => e.target.files[0] && handleScanFile(e.target.files[0])}
+            />
+
+            {scanState === 'idle' && (
+              <button
+                className="duo-btn ghost"
+                style={{ marginBottom: 14 }}
+                onClick={() => scanInputRef.current?.click()}
+              >
+                📷 Scan a Bill
+              </button>
+            )}
+
+            {scanState === 'scanning' && (
+              <div className="duo-card" style={{ padding: 20, display: 'flex', alignItems: 'center', gap: 16, marginBottom: 14 }}>
+                <img src={MASCOTS.worried} alt="Scanning" style={{ width: 56, height: 56, objectFit: 'contain', flexShrink: 0 }} />
+                <div>
+                  <p style={{ fontWeight: 900, fontSize: 15, color: '#4B4B4B', marginBottom: 6 }}>Reading your bill…</p>
+                  <div className="scan-spinner" />
+                </div>
+              </div>
+            )}
+
+            {scanState === 'done' && (
+              <div className="banner good" style={{ marginBottom: 14, justifyContent: 'space-between' }}>
+                <span>✓ Filled in what we found — check the fields below</span>
+                <button onClick={resetScan} style={{ background: 'none', border: 'none', fontFamily: 'Nunito, sans-serif', fontWeight: 800, fontSize: 13, color: '#3a7700', cursor: 'pointer', flexShrink: 0 }}>Scan again</button>
+              </div>
+            )}
+
+            {scanState === 'error' && (
+              <div className="banner bad" style={{ marginBottom: 14, justifyContent: 'space-between' }}>
+                <span>Couldn't read that bill — try a clearer photo</span>
+                <button onClick={resetScan} style={{ background: 'none', border: 'none', fontFamily: 'Nunito, sans-serif', fontWeight: 800, fontSize: 13, color: '#EA2B2B', cursor: 'pointer', flexShrink: 0 }}>Try again</button>
+              </div>
+            )}
+
             <div className="duo-card" style={{ padding: 20, display: 'flex', flexDirection: 'column', gap: 14 }}>
               <Field label="Bill name">
                 <input
-                  style={inputStyle}
+                  style={{ ...inputStyle, ...(scanState === 'done' && form.name ? { borderLeft: '3px solid #58CC02' } : {}) }}
                   placeholder="e.g. Netflix"
                   value={form.name}
                   onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
@@ -293,21 +363,25 @@ export default function App() {
               <Field label="Amount ($)">
                 <input
                   type="number" min="0" step="0.01"
-                  style={inputStyle}
+                  style={{ ...inputStyle, ...(scanState === 'done' && form.amount ? { borderLeft: '3px solid #58CC02' } : {}) }}
                   placeholder="0.00"
                   value={form.amount}
                   onChange={e => setForm(f => ({ ...f, amount: e.target.value }))}
                 />
               </Field>
               <Field label="Category">
-                <select style={inputStyle} value={form.category} onChange={e => setForm(f => ({ ...f, category: e.target.value }))}>
+                <select
+                  style={{ ...inputStyle, ...(scanState === 'done' && form.category !== 'Utilities' ? { borderLeft: '3px solid #58CC02' } : {}) }}
+                  value={form.category}
+                  onChange={e => setForm(f => ({ ...f, category: e.target.value }))}
+                >
                   {CATEGORIES.map(c => <option key={c}>{c}</option>)}
                 </select>
               </Field>
               <Field label="Due day of month">
                 <input
                   type="number" min="1" max="31"
-                  style={inputStyle}
+                  style={{ ...inputStyle, ...(scanState === 'done' && form.dueDay ? { borderLeft: '3px solid #58CC02' } : {}) }}
                   placeholder="1 – 31"
                   value={form.dueDay}
                   onChange={e => setForm(f => ({ ...f, dueDay: e.target.value }))}
@@ -323,7 +397,7 @@ export default function App() {
 
             <div style={{ marginTop: 20, display: 'flex', flexDirection: 'column', gap: 10 }}>
               <button className="duo-btn green" onClick={addBill}>Add Bill</button>
-              <button className="duo-btn ghost" onClick={() => { setForm(emptyForm); setTab('bills') }}>Cancel</button>
+              <button className="duo-btn ghost" onClick={() => { setForm(emptyForm); setScanState('idle'); setTab('bills') }}>Cancel</button>
             </div>
           </div>
         )}
@@ -459,4 +533,35 @@ const inputStyle = {
 function catEmoji(cat) {
   const map = { Housing: '🏠', Utilities: '⚡', Subscriptions: '📺', Health: '💪', Insurance: '🛡️', Food: '🍔', Transport: '🚗', Other: '📦' }
   return map[cat] || '📦'
+}
+
+function parseOCRText(text) {
+  const result = {}
+
+  // Amount — look for $ + digits, or "total/due/amount" near digits
+  const amtDirect = text.match(/\$\s*([\d,]+\.?\d{0,2})/)
+  const amtNear   = text.match(/(?:total|amount due|balance due|pay)[^$\d]{0,20}([\d,]+\.\d{2})/i)
+  const raw = amtDirect?.[1] ?? amtNear?.[1]
+  if (raw) result.amount = raw.replace(/,/g, '')
+
+  // Due day — look for "due"/"pay by"/"due date" near a date like 07/15 or Jul 15
+  const dateMatch = text.match(/(?:due|pay by|due date|payment due)[^\d]{0,20}(\d{1,2})[\/\-](\d{1,2})/i)
+  if (dateMatch) {
+    const day = parseInt(dateMatch[2])
+    if (day >= 1 && day <= 31) result.dueDay = String(day)
+  }
+
+  // Category — keyword scan
+  if (/netflix|spotify|hulu|disney\+|prime video|apple tv|subscription/i.test(text)) result.category = 'Subscriptions'
+  else if (/electric|electricity|gas bill|water bill|internet|wi-fi|wifi|broadband/i.test(text)) result.category = 'Utilities'
+  else if (/rent|mortgage|lease/i.test(text)) result.category = 'Housing'
+  else if (/insurance|geico|allstate|progressive|state farm/i.test(text)) result.category = 'Insurance'
+  else if (/gym|fitness|health|medical|doctor|clinic/i.test(text)) result.category = 'Health'
+  else if (/restaurant|food|grocery|groceries|doordash|ubereats/i.test(text)) result.category = 'Food'
+
+  // Name — first clean non-trivial line
+  const lines = text.split('\n').map(l => l.trim()).filter(l => l.length > 2 && /[a-zA-Z]/.test(l))
+  if (lines.length > 0) result.name = lines[0].substring(0, 30).replace(/[^a-zA-Z0-9 &.,-]/g, '').trim()
+
+  return result
 }
