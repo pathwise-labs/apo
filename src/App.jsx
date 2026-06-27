@@ -27,12 +27,12 @@ const CAT_COLOR = {
 const emptyForm = { name: '', amount: '', category: 'Utilities', dueDay: '', status: 'Unpaid' }
 
 const MASCOTS = {
-  happy:   '/Screenshot 2026-06-27 at 11.48.14 AM.png',
-  crash:   '/Screenshot 2026-06-27 at 11.48.23 AM.png',
-  secure:  '/Screenshot 2026-06-27 at 11.48.27 AM.png',
-  work:    '/Screenshot 2026-06-27 at 11.48.31 AM.png',
-  goal:    '/Screenshot 2026-06-27 at 11.48.37 AM.png',
-  worried: '/Screenshot 2026-06-27 at 11.48.41 AM.png',
+  happy:   '/mascot-happy.png',
+  crash:   '/mascot-crash.png',
+  secure:  '/mascot-secure.png',
+  work:    '/mascot-work.png',
+  goal:    '/mascot-goal.png',
+  worried: '/mascot-worried.png',
 }
 
 /* ── icons ── */
