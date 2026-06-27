@@ -26,6 +26,15 @@ const CAT_COLOR = {
 
 const emptyForm = { name: '', amount: '', category: 'Utilities', dueDay: '', status: 'Unpaid' }
 
+const MASCOTS = {
+  happy:   '/Screenshot 2026-06-27 at 11.48.14 AM.png',
+  crash:   '/Screenshot 2026-06-27 at 11.48.23 AM.png',
+  secure:  '/Screenshot 2026-06-27 at 11.48.27 AM.png',
+  work:    '/Screenshot 2026-06-27 at 11.48.31 AM.png',
+  goal:    '/Screenshot 2026-06-27 at 11.48.37 AM.png',
+  worried: '/Screenshot 2026-06-27 at 11.48.41 AM.png',
+}
+
 /* ── icons ── */
 const IconHome = () => (
   <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
@@ -119,24 +128,42 @@ export default function App() {
         {/* ══ HOME ══ */}
         {tab === 'home' && (
           <div style={{ padding: '20px 16px 0' }}>
-            <h1 style={{ fontWeight: 900, fontSize: 26, color: '#4B4B4B', marginBottom: 4 }}>Billy</h1>
-            <p style={{ fontWeight: 700, fontSize: 14, color: '#AFAFAF', marginBottom: 20 }}>
-              {new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
-            </p>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
+              <div>
+                <h1 style={{ fontWeight: 900, fontSize: 26, color: '#4B4B4B', marginBottom: 2 }}>Billy</h1>
+                <p style={{ fontWeight: 700, fontSize: 14, color: '#AFAFAF' }}>
+                  {new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
+                </p>
+              </div>
+              <img src={MASCOTS.work} alt="Billy mascot" style={{ width: 80, height: 80, objectFit: 'contain' }} />
+            </div>
+            <div style={{ marginBottom: 16 }} />
 
             {/* Progress bar */}
             <div className="duo-card" style={{ padding: '18px 18px 16px', marginBottom: 16 }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
-                <span style={{ fontWeight: 900, fontSize: 14, color: '#AFAFAF', textTransform: 'uppercase', letterSpacing: '.06em' }}>Monthly progress</span>
-                <span style={{ fontWeight: 900, fontSize: 16, color: '#58CC02' }}>{paidPct}%</span>
-              </div>
-              <div className="duo-progress">
-                <span style={{ width: `${paidPct}%` }} />
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 10 }}>
-                <span style={{ fontWeight: 800, fontSize: 13, color: '#58CC02' }}>{fmt(paidTotal)} paid</span>
-                <span style={{ fontWeight: 800, fontSize: 13, color: '#FF4B4B' }}>{fmt(outstanding)} left</span>
-              </div>
+              {paidPct === 100 ? (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+                  <img src={MASCOTS.goal} alt="Goal reached" style={{ width: 80, height: 80, objectFit: 'contain', flexShrink: 0 }} />
+                  <div>
+                    <p style={{ fontWeight: 900, fontSize: 17, color: '#58CC02', marginBottom: 2 }}>All paid up! 🎉</p>
+                    <p style={{ fontWeight: 800, fontSize: 13, color: '#AFAFAF' }}>You cleared {fmt(paidTotal)} this month</p>
+                  </div>
+                </div>
+              ) : (
+                <>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+                    <span style={{ fontWeight: 900, fontSize: 14, color: '#AFAFAF', textTransform: 'uppercase', letterSpacing: '.06em' }}>Monthly progress</span>
+                    <span style={{ fontWeight: 900, fontSize: 16, color: '#58CC02' }}>{paidPct}%</span>
+                  </div>
+                  <div className="duo-progress">
+                    <span style={{ width: `${paidPct}%` }} />
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 10 }}>
+                    <span style={{ fontWeight: 800, fontSize: 13, color: '#58CC02' }}>{fmt(paidTotal)} paid</span>
+                    <span style={{ fontWeight: 800, fontSize: 13, color: '#FF4B4B' }}>{fmt(outstanding)} left</span>
+                  </div>
+                </>
+              )}
             </div>
 
             {/* Stat pills row */}
@@ -150,13 +177,13 @@ export default function App() {
             {/* Alert banners */}
             {overdue.length > 0 && (
               <div className="banner bad" style={{ marginBottom: 10 }}>
-                <span style={{ fontSize: 20 }}>⚠️</span>
+                <img src={MASCOTS.crash} alt="Overdue" style={{ width: 52, height: 52, objectFit: 'contain', flexShrink: 0 }} />
                 <span>{overdue.length} bill{overdue.length > 1 ? 's' : ''} overdue — {overdue.map(b => b.name).join(', ')}</span>
               </div>
             )}
             {dueSoon.length > 0 && (
               <div className="banner good" style={{ marginBottom: 10 }}>
-                <span style={{ fontSize: 20 }}>📅</span>
+                <img src={MASCOTS.worried} alt="Due soon" style={{ width: 52, height: 52, objectFit: 'contain', flexShrink: 0 }} />
                 <span>{dueSoon.length} bill{dueSoon.length > 1 ? 's' : ''} due soon</span>
               </div>
             )}
@@ -246,8 +273,13 @@ export default function App() {
         {/* ══ ADD ══ */}
         {tab === 'add' && (
           <div style={{ padding: '20px 16px 0' }}>
-            <h2 style={{ fontWeight: 900, fontSize: 22, color: '#4B4B4B', marginBottom: 4 }}>Add a Bill</h2>
-            <p style={{ fontWeight: 700, fontSize: 14, color: '#AFAFAF', marginBottom: 20 }}>Fill in the details below</p>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 20 }}>
+              <img src={MASCOTS.secure} alt="Secure" style={{ width: 72, height: 72, objectFit: 'contain', flexShrink: 0 }} />
+              <div>
+                <h2 style={{ fontWeight: 900, fontSize: 22, color: '#4B4B4B', marginBottom: 2 }}>Add a Bill</h2>
+                <p style={{ fontWeight: 700, fontSize: 14, color: '#AFAFAF' }}>Fill in the details below</p>
+              </div>
+            </div>
 
             <div className="duo-card" style={{ padding: 20, display: 'flex', flexDirection: 'column', gap: 14 }}>
               <Field label="Bill name">
@@ -299,8 +331,13 @@ export default function App() {
         {/* ══ CHARTS ══ */}
         {tab === 'charts' && (
           <div style={{ padding: '20px 16px 0' }}>
-            <h2 style={{ fontWeight: 900, fontSize: 22, color: '#4B4B4B', marginBottom: 4 }}>Insights</h2>
-            <p style={{ fontWeight: 700, fontSize: 14, color: '#AFAFAF', marginBottom: 16 }}>Where your money goes</p>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 16 }}>
+              <img src={MASCOTS.happy} alt="Insights" style={{ width: 72, height: 72, objectFit: 'contain', flexShrink: 0 }} />
+              <div>
+                <h2 style={{ fontWeight: 900, fontSize: 22, color: '#4B4B4B', marginBottom: 2 }}>Insights</h2>
+                <p style={{ fontWeight: 700, fontSize: 14, color: '#AFAFAF' }}>Where your money goes</p>
+              </div>
+            </div>
 
             {bills.length === 0 ? (
               <div className="duo-card" style={{ padding: 32, textAlign: 'center' }}>
